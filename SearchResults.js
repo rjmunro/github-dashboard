@@ -122,7 +122,7 @@ function SearchResults() {
         pullRequests = pullRequests.concat(data.items);
         // Get the link to the next page of results
         var nextLinkSuffix = "; rel=\"next\"";
-        var nextLinks = jqXHR.getResponseHeader("Link").split(",").filter(function (link) { return link.endsWith(nextLinkSuffix); });
+        var nextLinks = (jqXHR.getResponseHeader("Link")||"").split(",").filter(function (link) { return link.endsWith(nextLinkSuffix); });
         if (nextLinks.length > 0) {
           var nextLink = nextLinks[0];
           nextLink = nextLink.substring(1, nextLink.length - nextLinkSuffix.length - 1);
