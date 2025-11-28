@@ -228,13 +228,18 @@
           searchResults: new SearchResults(org)
         };
 
-        var recentOrgs = JSON.parse(localStorage.getItem('recentOrgs') || '[]');
-        recentOrgs = recentOrgs.filter(function(o) { return o !== org; });
-        recentOrgs.unshift(org);
-        recentOrgs = recentOrgs.slice(0, 100);
-        localStorage.setItem('recentOrgs', JSON.stringify(recentOrgs));
+        // Load data and save org to history only after first successful API call
+        viewModel.searchResults.load(function() {
+          // Only save to recent history if the API call succeeded
+          if (org) {
+            var recentOrgs = JSON.parse(localStorage.getItem('recentOrgs') || '[]');
+            recentOrgs = recentOrgs.filter(function(o) { return o !== org; });
+            recentOrgs.unshift(org);
+            recentOrgs = recentOrgs.slice(0, 10);
+            localStorage.setItem('recentOrgs', JSON.stringify(recentOrgs));
+          }
+        });
 
-        viewModel.searchResults.load();
         ko.applyBindings(viewModel);
       });
     </script>

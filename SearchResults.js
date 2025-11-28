@@ -106,15 +106,21 @@ function SearchResults(org) {
   self.uninitialised = ko.pureComputed(function () { return self.pullRequests().length == 0; });
 
 
-  function loadAllPages(query, onComplete) {
+  function loadAllPages(query, onComplete, onFirstSuccess) {
     var totalCount;
     var pullRequests = [];
+    var firstRequestSucceeded = false;
     // Function to load a page of results
     function getPage(uri) {
       self.activeRequests(self.activeRequests() + 1);
       $.getJSON(uri, function (data, textStatus, jqXHR) {
         self.errorMessage(null);
         totalCount = data.total_count;
+        // Call onFirstSuccess callback after first successful request
+        if (!firstRequestSucceeded && onFirstSuccess) {
+          firstRequestSucceeded = true;
+          onFirstSuccess();
+        }
         // Add the pull requests to the existing cache
         pullRequests = pullRequests.concat(data.items);
         // Get the link to the next page of results
@@ -193,12 +199,12 @@ function SearchResults(org) {
 
   var totalCount;
 
-  self.load = function () {
+  self.load = function (onFirstSuccess) {
     // Load the first set of pages
     loadAllPages(baseQuery, function (prs, count) {
       totalCount = count;
       processSearchResults(prs, function () { setInterval(self.update, 60 * 1000); });
-    });
+    }, onFirstSuccess);
   };
 
   self.update = function (onComplete) {
