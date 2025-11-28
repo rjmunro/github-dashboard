@@ -227,6 +227,13 @@
         {
           searchResults: new SearchResults(org)
         };
+
+        var recentOrgs = JSON.parse(localStorage.getItem('recentOrgs') || '[]');
+        recentOrgs = recentOrgs.filter(function(o) { return o !== org; });
+        recentOrgs.unshift(org);
+        recentOrgs = recentOrgs.slice(0, 100);
+        localStorage.setItem('recentOrgs', JSON.stringify(recentOrgs));
+
         viewModel.searchResults.load();
         ko.applyBindings(viewModel);
       });

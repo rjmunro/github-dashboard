@@ -34,6 +34,51 @@
             font-weight: 600;
             color: #555;
         }
+        .recent-orgs {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+        .recent-orgs h3 {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .org-item {
+            position: relative;
+            margin-bottom: 8px;
+        }
+        .org-link {
+            display: block;
+            padding: 10px 40px 10px 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            color: #667eea;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .org-link:hover {
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+        }
+        .remove-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px 8px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .remove-btn:hover {
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -57,10 +102,58 @@
                 </div>
                 <button type="submit" class="btn btn-primary">View Dashboard</button>
             </form>
+
+            <div class="recent-orgs" id="recentOrgs" style="display: none;">
+                <h3>Recently Viewed:</h3>
+                <div id="recentOrgsList"></div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Load recent organizations from localStorage
+        function getRecentOrgs() {
+            var stored = localStorage.getItem('recentOrgs');
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        // Remove organization from recent list
+        function removeRecentOrg(orgName) {
+            var recentOrgs = getRecentOrgs();
+            recentOrgs = recentOrgs.filter(function(org) { return org !== orgName; });
+            localStorage.setItem('recentOrgs', JSON.stringify(recentOrgs));
+            displayRecentOrgs();
+        }
+
+        // Display recent organizations
+        function displayRecentOrgs() {
+            var recentOrgs = getRecentOrgs();
+            var container = document.getElementById('recentOrgs');
+            var list = document.getElementById('recentOrgsList');
+
+            if (recentOrgs.length > 0) {
+                container.style.display = 'block';
+                list.innerHTML = recentOrgs.slice(0,10).map(function(org) {
+                    return '<div class="org-item">' +
+                           '<a href="OpenPRs.html?org=' + encodeURIComponent(org) + '" class="org-link">' +
+                           escapeHtml(org) + '</a>' +
+                           '<button class="remove-btn" onclick="removeRecentOrg(\'' +
+                           escapeHtml(org).replace(/'/g, "\\'") + '\'); event.preventDefault(); return false;" title="Remove">&times;</button>' +
+                           '</div>';
+                }).join('');
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle form submission
         document.getElementById('orgForm').addEventListener('submit', function(e) {
             e.preventDefault();
             var orgName = document.getElementById('orgName').value.trim();
@@ -68,6 +161,9 @@
                 window.location.href = 'OpenPRs.html?org=' + encodeURIComponent(orgName);
             }
         });
+
+        // Display recent orgs on page load
+        displayRecentOrgs();
     </script>
 </body>
 </html>
