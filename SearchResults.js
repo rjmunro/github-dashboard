@@ -24,7 +24,50 @@ var msInADay = 1000 * 60 * 60 * 24,
 
 function SearchResults(org) {
   var self = this;
-  var cacheKey = 'pr-cache-noauth-' + org;
+
+  // Helper: Get GitHub token from localStorage
+  function getGitHubToken() {
+    return localStorage.getItem('github-token') || '';
+  }
+
+  // Helper: Get auth key suffix (first 5 chars of token)
+  function getAuthKey() {
+    var token = getGitHubToken();
+    return token ? token.substring(0, 5) : 'anon';
+  }
+
+  // Helper: Extract project name from repository_url or html_url
+  // e.g., "https://api.github.com/repos/owner/repo" -> "owner/repo"
+  function getProjectName(pr) {
+    var url = pr.repository_url || pr.html_url || '';
+    var match = url.match(/\/repos\/([^\/]+\/[^\/]+)/);
+    return match ? match[1] : 'unknown';
+  }
+
+  // Helper: Extract minimal fields we need from a PR
+  function extractPRFields(pr) {
+    return {
+      created_at: pr.created_at,
+      closed_at: pr.closed_at
+    };
+  }
+
+  // Helper: Reconstruct full PR object from cache
+  function reconstructPR(projectName, prNumber, minimalPR) {
+    return {
+      id: projectName + '#' + prNumber, // Synthetic ID for knockout mapping
+      number: prNumber,
+      created_at: minimalPR.created_at,
+      updated_at: null, // Not stored per-PR
+      closed_at: minimalPR.closed_at,
+      repository_url: 'https://api.github.com/repos/' + projectName,
+      html_url: 'https://github.com/' + projectName + '/pull/' + prNumber
+    };
+  }
+
+  var cacheKey = 'pr-cache-' + org + '-' + getAuthKey();
+
+  self.lastUpdateTimestamp = ko.observable();
 
   self.pullRequests =
     ko.mapping.fromJS([],
@@ -107,27 +150,86 @@ function SearchResults(org) {
   self.uninitialised = ko.pureComputed(function () { return self.pullRequests().length == 0; });
 
 
-  // Save cache to localStorage
-  function saveCache(data) {
+  // Save cache to localStorage with project hierarchy
+  function saveCache(prs, isComplete) {
     try {
+      // Load existing cache to merge with
+      var existingCache = {};
+      try {
+        var cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          var data = JSON.parse(cached);
+          existingCache = data.projects || {};
+        }
+      } catch (e) {
+        console.warn('Failed to load existing cache for merge:', e);
+      }
+
+      // Organize PRs by project, merging with existing cache
+      var projects = existingCache;
+      var maxUpdateTime = null;
+
+      prs.forEach(function(pr) {
+        var projectName = getProjectName(pr);
+        if (!projects[projectName]) {
+          projects[projectName] = { prs: {} };
+        }
+
+        var minimalPR = extractPRFields(pr);
+        projects[projectName].prs[pr.number] = minimalPR;
+
+        // Track highest update time
+        var updateTime = new Date(pr.updated_at);
+        if (!maxUpdateTime || updateTime > maxUpdateTime) {
+          maxUpdateTime = updateTime;
+        }
+      });
+
+      // If complete, use current time; otherwise use highest PR update time
+      var lastPRUpdate = isComplete ? new Date().toISOString() :
+                         (maxUpdateTime ? maxUpdateTime.toISOString() : null);
+
       localStorage.setItem(cacheKey, JSON.stringify({
-        pullRequests: data.pullRequests,
-        lastPRUpdate: data.lastPRUpdate,
+        projects: projects,
+        lastPRUpdate: lastPRUpdate,
+        isComplete: isComplete || false,
         timestamp: new Date().toISOString()
       }));
+
+      self.lastUpdateTimestamp(lastPRUpdate);
+
     } catch (e) {
       console.warn('Failed to save cache to localStorage:', e);
     }
   }
 
-  // Load cache from localStorage
+  // Load cache from localStorage and convert back to flat array
   function loadCache() {
     try {
       var cached = localStorage.getItem(cacheKey);
       if (cached) {
         var data = JSON.parse(cached);
-        console.log('Loaded cache from', data.timestamp, '(' + data.pullRequests.length + ' PRs)');
-        return data;
+
+        // Convert projects hierarchy back to flat array, reconstructing full PR objects
+        var pullRequests = [];
+        Object.keys(data.projects || {}).forEach(function(projectName) {
+          var project = data.projects[projectName];
+          Object.keys(project.prs || {}).forEach(function(prNumber) {
+            var minimalPR = project.prs[prNumber];
+            pullRequests.push(reconstructPR(projectName, prNumber, minimalPR));
+          });
+        });
+
+        console.log('Loaded cache from', data.timestamp, '(' + pullRequests.length + ' PRs across ' +
+                    Object.keys(data.projects || {}).length + ' projects)');
+
+        self.lastUpdateTimestamp(data.lastPRUpdate);
+
+        return {
+          pullRequests: pullRequests,
+          lastPRUpdate: data.lastPRUpdate,
+          isComplete: data.isComplete
+        };
       }
     } catch (e) {
       console.warn('Failed to load cache from localStorage:', e);
@@ -153,26 +255,34 @@ function SearchResults(org) {
         // Add the pull requests to the existing cache
         pullRequests = pullRequests.concat(data.items);
 
-        // Save progress after each page
-        saveCache({
-          pullRequests: pullRequests,
-          lastPRUpdate: pullRequests.length > 0 ? pullRequests[pullRequests.length - 1].updated_at : null
-        });
         // Get the link to the next page of results
         var nextLinkSuffix = "; rel=\"next\"";
         var linksHeader = jqXHR.getResponseHeader("Link");
         if (linksHeader == null)
           linksHeader = "";
         var nextLinks = linksHeader.split(",").filter(function (link) { return link.endsWith(nextLinkSuffix); });
-        if (nextLinks.length > 0) {
+        var hasMorePages = nextLinks.length > 0;
+
+        // Determine if data is complete:
+        // - If there are more pages, definitely incomplete
+        // - If no more pages BUT we hit GitHub's 1000 result limit, incomplete
+        // - Only complete if no more pages AND last page had fewer results (indicating we got everything)
+        var hitSearchLimit = pullRequests.length >= 1000;
+        var isComplete = !hasMorePages && (!hitSearchLimit || data.items.length < 100);
+
+        // Save progress after each page
+        saveCache(pullRequests, isComplete);
+
+        if (hasMorePages) {
           var nextLink = nextLinks[0];
           // Extract URL from <URL>; rel="next" format
           var match = nextLink.match(/<([^>]+)>/);
           if (match) {
             getPage(match[1]);
           }
-        } else if (onComplete)
+        } else if (onComplete) {
           onComplete(pullRequests, totalCount);
+        }
       })
       .fail(function (jqXHR, textStatus, errorThrown) {
         if (jqXHR.status === 0) {
@@ -233,6 +343,7 @@ function SearchResults(org) {
   }
 
   var totalCount;
+  var updateTimeoutId = null;
 
   self.update = function (onComplete, onFirstSuccess) {
     // Build query - if lastPRUpdate is set, only fetch updates since then
@@ -244,14 +355,25 @@ function SearchResults(org) {
     loadAllPages(query, function (prs, count) {
       totalCount = count;
       processSearchResults(prs, function() {
-        // Save updated state after loading
-        saveCache({
-          pullRequests: self.pullRequests().map(function(pr) { return ko.mapping.toJS(pr); }),
-          lastPRUpdate: self.lastPRUpdate()
-        });
+        // Note: saveCache is already called in loadAllPages after each page
+        // Mark as complete after full update cycle
+        var allPRs = self.pullRequests().map(function(pr) { return ko.mapping.toJS(pr); });
+        saveCache(allPRs, true);
+
         if (onComplete) onComplete();
       });
     }, onFirstSuccess);
+  };
+
+  self.scheduleNextUpdate = function() {
+    // Clear any existing timeout
+    if (updateTimeoutId) {
+      clearTimeout(updateTimeoutId);
+    }
+    // Schedule next update in 5 minutes (300 seconds)
+    updateTimeoutId = setTimeout(function() {
+      self.update(self.scheduleNextUpdate);
+    }, 300 * 1000);
   };
 
   self.load = function (onFirstSuccess) {
@@ -267,8 +389,6 @@ function SearchResults(org) {
     }
 
     // Fetch new data (everything if no cache, or updates if we have cache)
-    self.update(function() {
-      setInterval(self.update, 60 * 1000);
-    }, onFirstSuccess);
+    self.update(self.scheduleNextUpdate, onFirstSuccess);
   };
 }
