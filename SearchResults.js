@@ -181,7 +181,7 @@ function SearchResults(org) {
         }
         var rateLimitRemaining = jqXHR.getResponseHeader("X-RateLimit-Remaining");
         if (rateLimitRemaining !== null && rateLimitRemaining <= 0) {
-          var rateLimitReset = new Date(parseInt(jqXHR.getResponseHeader("X-RateLimit-Reset")) * 1000);
+          var rateLimitReset = new Date(parseInt(jqXHR.getResponseHeader("X-RateLimit-Reset")) * 1000 + 1000);
           self.errorMessage("Rate limit exceeded, retrying at " + rateLimitReset.toLocaleTimeString());
           setTimeout(function () { getPage(uri); }, rateLimitReset - new Date());
           return;
