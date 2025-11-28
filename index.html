@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <style>
+        body {
+            padding-top: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 500px;
+        }
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+        }
+        .form-group label {
+            font-weight: 600;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h1>GitHub Dashboard</h1>
+            <form id="orgForm">
+                <div class="form-group">
+                    <label for="orgName">GitHub Organization or User:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="orgName"
+                        placeholder="e.g., NathanJPhillips, microsoft, facebook"
+                        required
+                        autofocus
+                    >
+                    <small class="form-text text-muted">
+                        Enter the name of a GitHub organization or user to view their pull request statistics.
+                    </small>
+                </div>
+                <button type="submit" class="btn btn-primary">View Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('orgForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var orgName = document.getElementById('orgName').value.trim();
+            if (orgName) {
+                window.location.href = 'OpenPRs.html?org=' + encodeURIComponent(orgName);
+            }
+        });
+    </script>
+</body>
+</html>

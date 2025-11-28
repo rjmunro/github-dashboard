@@ -216,11 +216,17 @@
     <script src="GitHub-utils.js"></script>
     <script src="SearchResults.js"></script>
     <script>
-      var viewModel =
-        {
-          searchResults: new SearchResults()
-        };
       $(function () {
+        var urlParams = new URLSearchParams(window.location.search);
+        var org = urlParams.get('org') || 'NathanJPhillips';
+
+        // Update page title with organization name
+        document.title = org + ' GitHub Dashboard';
+
+        var viewModel =
+        {
+          searchResults: new SearchResults(org)
+        };
         viewModel.searchResults.load();
         ko.applyBindings(viewModel);
       });

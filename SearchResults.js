@@ -22,7 +22,7 @@ var msInADay = 1000 * 60 * 60 * 24,
   msInAWeek = msInADay * 7,
   msInAYear = msInADay * 365.25;
 
-function SearchResults() {
+function SearchResults(org) {
   var self = this;
 
   self.pullRequests =
@@ -152,7 +152,7 @@ function SearchResults() {
     getPage("https://api.github.com/search/issues?q=" + encodeURIComponent(query) + "&sort=updated&order=asc&per_page=100");
   }
 
-  var baseQuery = "user:diffblue type:pr";
+  var baseQuery = "user:" + org + " type:pr";
 
   function processSearchResults(pullRequestCache, onComplete) {
     // Don't retrieve more search results if already have as many as totalCount
