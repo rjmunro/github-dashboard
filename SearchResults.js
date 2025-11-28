@@ -125,8 +125,11 @@ function SearchResults() {
         var nextLinks = linksHeader.split(",").filter(function (link) { return link.endsWith(nextLinkSuffix); });
         if (nextLinks.length > 0) {
           var nextLink = nextLinks[0];
-          nextLink = nextLink.substring(1, nextLink.length - nextLinkSuffix.length - 1);
-          getPage(nextLink);
+          // Extract URL from <URL>; rel="next" format
+          var match = nextLink.match(/<([^>]+)>/);
+          if (match) {
+            getPage(match[1]);
+          }
         } else if (onComplete)
           onComplete(pullRequests, totalCount);
       })
