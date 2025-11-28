@@ -24,6 +24,7 @@ var msInADay = 1000 * 60 * 60 * 24,
 
 function SearchResults(org) {
   var self = this;
+  var cacheKey = 'pr-cache-noauth-' + org;
 
   self.pullRequests =
     ko.mapping.fromJS([],
@@ -106,6 +107,34 @@ function SearchResults(org) {
   self.uninitialised = ko.pureComputed(function () { return self.pullRequests().length == 0; });
 
 
+  // Save cache to localStorage
+  function saveCache(data) {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        pullRequests: data.pullRequests,
+        lastPRUpdate: data.lastPRUpdate,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.warn('Failed to save cache to localStorage:', e);
+    }
+  }
+
+  // Load cache from localStorage
+  function loadCache() {
+    try {
+      var cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        var data = JSON.parse(cached);
+        console.log('Loaded cache from', data.timestamp, '(' + data.pullRequests.length + ' PRs)');
+        return data;
+      }
+    } catch (e) {
+      console.warn('Failed to load cache from localStorage:', e);
+    }
+    return null;
+  }
+
   function loadAllPages(query, onComplete, onFirstSuccess) {
     var totalCount;
     var pullRequests = [];
@@ -123,6 +152,12 @@ function SearchResults(org) {
         }
         // Add the pull requests to the existing cache
         pullRequests = pullRequests.concat(data.items);
+
+        // Save progress after each page
+        saveCache({
+          pullRequests: pullRequests,
+          lastPRUpdate: pullRequests.length > 0 ? pullRequests[pullRequests.length - 1].updated_at : null
+        });
         // Get the link to the next page of results
         var nextLinkSuffix = "; rel=\"next\"";
         var linksHeader = jqXHR.getResponseHeader("Link");
@@ -199,17 +234,41 @@ function SearchResults(org) {
 
   var totalCount;
 
-  self.load = function (onFirstSuccess) {
-    // Load the first set of pages
-    loadAllPages(baseQuery, function (prs, count) {
+  self.update = function (onComplete, onFirstSuccess) {
+    // Build query - if lastPRUpdate is set, only fetch updates since then
+    var query = baseQuery;
+    if (self.lastPRUpdate()) {
+      query = baseQuery + " updated:>=" + dateToGitHubISOString(self.lastPRUpdate());
+    }
+
+    loadAllPages(query, function (prs, count) {
       totalCount = count;
-      processSearchResults(prs, function () { setInterval(self.update, 60 * 1000); });
+      processSearchResults(prs, function() {
+        // Save updated state after loading
+        saveCache({
+          pullRequests: self.pullRequests().map(function(pr) { return ko.mapping.toJS(pr); }),
+          lastPRUpdate: self.lastPRUpdate()
+        });
+        if (onComplete) onComplete();
+      });
     }, onFirstSuccess);
   };
 
-  self.update = function (onComplete) {
-    loadAllPages(baseQuery + " updated:>=" + dateToGitHubISOString(self.lastPRUpdate()), function (prs) {
-      processSearchResults(prs, onComplete);
-    });
+  self.load = function (onFirstSuccess) {
+    // Try to load from cache first
+    var cached = loadCache();
+    if (cached && cached.pullRequests.length > 0) {
+      // Load cached data into the UI immediately
+      ko.mapping.fromJS(cached.pullRequests, {}, self.pullRequests);
+      if (cached.lastPRUpdate) {
+        self.lastPRUpdate(new Date(cached.lastPRUpdate));
+      }
+      console.log('Loaded ' + cached.pullRequests.length + ' PRs from cache');
+    }
+
+    // Fetch new data (everything if no cache, or updates if we have cache)
+    self.update(function() {
+      setInterval(self.update, 60 * 1000);
+    }, onFirstSuccess);
   };
 }
