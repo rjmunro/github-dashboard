@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="diffblue.css" />
   </head>
-  <body data-bind="with: searchResults">
+  <body data-bind="with: searchResults, css: { disaster: !isDataComplete() }">
     <div data-bind="visible: uninitialised">
       <p class="loadingWaiter">Loading...</p>
     </div>
@@ -205,6 +205,20 @@
     <div>
       <span class="error" data-bind="text: errorMessage"></span>
     </div>
+
+    <!-- Data freshness indicator -->
+    <div class="data-freshness-bar" style="position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; text-align: center; z-index: 1000; background: rgba(0, 0, 0, 0.5);">
+      <span data-bind="visible: lastUpdateTimestamp">
+        Data updated as of: <strong data-bind="text: new Date(lastUpdateTimestamp()).toLocaleString()"></strong>
+      </span>
+      <span data-bind="visible: !isDataComplete()" style="margin-left: 10px; color: #ff6b6b;">
+        ⚠ Loading in progress...
+      </span>
+      <button class="btn btn-sm btn-primary" style="margin-left: 15px;" data-bind="click: refreshNow">
+        🔄 Refresh Now
+      </button>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.4.1/knockout-min.js" integrity="sha256-PX9zWVaICUCeklczWaS9DLBb9uGN7pCkCT0Kyz1elRo=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout.mapping/2.4.1/knockout.mapping.min.js" integrity="sha256-gaGobNk1cPaj0abcVmyZxUYgCPsueCJwN5i4DjC4BS0=" crossorigin="anonymous"></script>

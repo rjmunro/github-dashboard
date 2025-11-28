@@ -68,6 +68,7 @@ function SearchResults(org) {
   var cacheKey = 'pr-cache-' + org + '-' + getAuthKey();
 
   self.lastUpdateTimestamp = ko.observable();
+  self.isDataComplete = ko.observable(false);
 
   self.pullRequests =
     ko.mapping.fromJS([],
@@ -197,6 +198,7 @@ function SearchResults(org) {
       }));
 
       self.lastUpdateTimestamp(lastPRUpdate);
+      self.isDataComplete(isComplete || false);
 
     } catch (e) {
       console.warn('Failed to save cache to localStorage:', e);
@@ -224,6 +226,7 @@ function SearchResults(org) {
                     Object.keys(data.projects || {}).length + ' projects)');
 
         self.lastUpdateTimestamp(data.lastPRUpdate);
+        self.isDataComplete(data.isComplete || false);
 
         return {
           pullRequests: pullRequests,
@@ -374,6 +377,15 @@ function SearchResults(org) {
     updateTimeoutId = setTimeout(function() {
       self.update(self.scheduleNextUpdate);
     }, 300 * 1000);
+  };
+
+  self.refreshNow = function() {
+    // Cancel scheduled update and run immediately
+    if (updateTimeoutId) {
+      clearTimeout(updateTimeoutId);
+      updateTimeoutId = null;
+    }
+    self.update(self.scheduleNextUpdate);
   };
 
   self.load = function (onFirstSuccess) {
