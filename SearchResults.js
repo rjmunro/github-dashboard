@@ -128,7 +128,7 @@ function SearchResults(org) {
     for (var count = 0; count < limit; ++count) {
       dates.push(new Date(when).toLocaleDateString());
       openPRCountHistory.push(f(when));
-      when -= msInADay;
+      when -= msInAWeek;
     }
     return { labels: dates.reverse(), data: openPRCountHistory.reverse() };
   };
