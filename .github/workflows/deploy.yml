@@ -43,6 +43,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Create build info
+        run: |
+          echo '{"sha":"'"$GITHUB_SHA"'","timestamp":"'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"}' > build-info.json
+          cat build-info.json
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
