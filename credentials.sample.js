@@ -6,9 +6,6 @@ var username = "username";
 // A personal access token from https://github.com/settings/tokens
 var accessCode = "token";
 
-// An API token from https://developer.travis-ci.com/authentication
-var travisAccessCode = "token";
-
 // ///////////////////// Leave the below /////////////////////
 
 $.ajaxSetup({
